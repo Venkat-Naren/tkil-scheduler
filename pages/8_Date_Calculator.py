@@ -42,7 +42,7 @@ for idx, row in df.iterrows():
 
     preds = []
 
-    for pred_col in ["Pred1", "Pred2", "Pred3"\]:
+    for pred_col in ["Pred1", "Pred2", "Pred3"]:
 
         pred = str(
             row.get(pred_col, "")
