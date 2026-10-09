@@ -19,10 +19,9 @@ if "schedule_df" not in st.session_state:
 df = st.session_state["schedule_df"].copy()
 
 st.info(
-    "Define activity relationships and predecessors."
+    "Edit predecessor relationships directly in the table below."
 )
 
-# Editable grid
 edited_df = st.data_editor(
     df,
     use_container_width=True,
@@ -36,8 +35,6 @@ st.success(
     "Schedule Logic Saved."
 )
 
-# Validation Checks
-
 st.divider()
 
 st.subheader("Logic Validation")
@@ -50,7 +47,7 @@ issues = []
 
 for _, row in edited_df.iterrows():
 
-    activity_id = str(row["Activity ID"])
+    activity_id = str(row["Activity ID"]).strip()
 
     for pred_col in ["Pred1", "Pred2", "Pred3"\]:
 
@@ -58,7 +55,7 @@ for _, row in edited_df.iterrows():
             row.get(pred_col, "")
         ).strip()
 
-        if pred == "":
+        if pred == "" or pred.lower() == "nan":
             continue
 
         if pred not in activity_list:
@@ -81,9 +78,7 @@ if len(issues) > 0:
 
     for issue in issues:
 
-        st.write(
-            f"❌ {issue}"
-        )
+        st.write(f"❌ {issue}")
 
 else:
 
