@@ -37,22 +37,22 @@ if st.button("Generate Schedule"):
 
         for _, fragnet in matching_fragnets.iterrows():
 
-            schedule.append({
-                "Activity ID": f"A{activity_counter:04d}",
-                "TKIL SAP WBS Code": wbs["TKIL SAP WBS Code"],
-                "WBS Name": wbs["WBS Name"],
-                "WBS Scope": wbs["WBS Scope"],
-                "Fragnet ID": fragnet["Fragnet ID"],
-                "Activity Description":
-                    f"{wbs['WBS Name']} - {fragnet['Activity Description']}",
-                "S-Curve Scope": fragnet["S-Curve Scope"],
-                "Duration": fragnet["Duration"],
-                "Pred1": "",
-                "Pred2": "",
-                "Pred3": "",
-                "Relationship": "FS",
-                "% Complete": 0
-            })
+           schedule.append({
+    "Activity ID": f"A{activity_counter:04d}",
+    "TKIL SAP WBS Code": wbs["TKIL SAP WBS Code"],
+    "WBS Name": wbs["WBS Name"],
+    "WBS Scope": wbs["WBS Scope"],
+    "Fragnet ID": fragnet["Fragnet ID"],
+    "Activity Description":
+        f"{wbs['WBS Name']} - {fragnet['Activity Description']}",
+    "S-Curve Scope": fragnet["S-Curve Scope"],
+    "Duration": fragnet["Duration (Days)"],
+    "Pred1": "",
+    "Pred2": "",
+    "Pred3": "",
+    "Relationship": "FS",
+    "% Complete": 0
+})
 
             activity_counter += 1
 
