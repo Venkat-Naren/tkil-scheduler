@@ -127,7 +127,7 @@ for _, row in df.iterrows():
         "Pred1",
         "Pred2",
         "Pred3"
-    \]:
+    ]:
 
         pred = str(
             row.get(pred_col, "")
