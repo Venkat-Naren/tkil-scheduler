@@ -10,14 +10,18 @@ st.set_page_config(
 st.title("📂 WBS Upload")
 
 st.markdown("""
-Upload the WBS Excel file containing:
+### Upload WBS Excel File
+
+Required Columns:
 
 - TKIL SAP WBS Code
 - WBS Name
 - WBS Scope
 """)
 
-# Sample Template
+# ------------------------------------------------------------------
+# SAMPLE TEMPLATE
+# ------------------------------------------------------------------
 
 sample_df = pd.DataFrame({
     "TKIL SAP WBS Code": [
@@ -59,18 +63,20 @@ st.download_button(
 
 st.divider()
 
+# ------------------------------------------------------------------
+# UPLOAD SECTION
+# ------------------------------------------------------------------
+
 uploaded_file = st.file_uploader(
     "Upload WBS Excel File",
     type=["xlsx"]
 )
 
-if uploaded_file:
+if uploaded_file is not None:
 
     try:
 
-        wbs_df = pd.read_excel(
-            uploaded_file
-        )
+        wbs_df = pd.read_excel(uploaded_file)
 
         required_columns = [
             "TKIL SAP WBS Code",
@@ -78,16 +84,16 @@ if uploaded_file:
             "WBS Scope"
         ]
 
-        missing = [
+        missing_columns = [
             col
             for col in required_columns
             if col not in wbs_df.columns
         ]
 
-        if missing:
+        if len(missing_columns) > 0:
 
             st.error(
-                f"Missing columns: {', '.join(missing)}"
+                f"Missing Columns: {', '.join(missing_columns)}"
             )
 
         else:
@@ -104,4 +110,22 @@ if uploaded_file:
                 height=400
             )
 
-    except Exception:
+    except Exception as e:
+
+        st.error(
+            f"Error reading file: {str(e)}"
+        )
+
+# ------------------------------------------------------------------
+# SHOW EXISTING DATA
+# ------------------------------------------------------------------
+
+if "wbs_df" in st.session_state:
+
+    st.subheader("Current WBS Data")
+
+    st.dataframe(
+        st.session_state["wbs_df"],
+        use_container_width=True,
+        height=400
+    )
