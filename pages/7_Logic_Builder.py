@@ -49,7 +49,7 @@ for _, row in edited_df.iterrows():
 
     activity_id = str(row["Activity ID"]).strip()
 
-    for pred_col in ["Pred1", "Pred2", "Pred3"\]:
+    for pred_col in ["Pred1", "Pred2", "Pred3"]:
 
         pred = str(
             row.get(pred_col, "")
