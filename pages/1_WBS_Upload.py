@@ -104,4 +104,4 @@ if uploaded_file:
                 height=400
             )
 
-    except Exception 
+    except Exception:
