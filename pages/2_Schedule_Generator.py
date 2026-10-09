@@ -15,26 +15,15 @@ st.subheader("Uploaded WBS Data")
 st.dataframe(wbs_df, use_container_width=True)
 
 # Temporary Fragnet Library
-fragnet_master = pd.DataFrame([
-    ["SC","SC-001","Release of mfg drgs/JRM","ENGG DM",5],
-    ["SC","SC-002","Issue of Inquiry & Receipt of Offer, bid evaluation","SC",7],
-    ["SC","SC-003","Finalisation of Order","SC",8],
-    ["BM","BM-001","Release of Tech. Specifications/PR","ENGG DM",5],
-    ["BM","BM-002","Issue of Inquiry & Receipt of Offer, bid evaluation","BM",7],
-    ["BM","BM-003","Technical Evaluation","ENGG DM",10],
-    ["BE","BE-001","Release of Tech. Specifications/PR","ENGG DM",5],
-    ["BE","BE-002","Issue of Inquiry & Receipt of Offer, bid evaluation","BE",7],
-    ["MA","MA-001","Release of Tech. Specifications/PR","ENGG DM",5],
-    ["MA","MA-002","Issue of Inquiry & Receipt of Offer, bid evaluation","MA",7]
-],
-columns=[
-    "WBS Scope",
-    "Fragnet ID",
-    "Activity Description",
-    "S-Curve Scope",
-    "Duration"
-])
+if "fragnet_master" not in st.session_state:
 
+    st.warning(
+        "Please upload Fragnet Master first."
+    )
+
+    st.stop()
+
+fragnet_master = st.session_state["fragnet_master"]
 if st.button("Generate Schedule"):
 
     schedule = []
