@@ -192,7 +192,7 @@ for _, row in df.iterrows():
 
     activity = str(row["Activity ID"])
 
-    for pred_col in ["Pred1", "Pred2", "Pred3"\]:
+    for pred_col in ["Pred1", "Pred2", "Pred3"]:
 
         pred = str(
             row.get(pred_col, "")
