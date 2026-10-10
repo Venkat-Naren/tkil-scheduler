@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import timedelta
 from io import BytesIO
+from collections import defaultdict, deque
 
 st.set_page_config(
     page_title="Schedule Logic Manager",
@@ -10,25 +11,153 @@ st.set_page_config(
 
 st.title("🔗 Schedule Logic Manager")
 
+# =====================================================
+# VALIDATIONS
+# =====================================================
+
 if "schedule_df" not in st.session_state:
 
     st.warning(
-        "Generate Schedule First."
+        "Please Generate Schedule First."
+    )
+
+    st.stop()
+
+if "project_start_date" not in st.session_state:
+
+    st.warning(
+        "Please set Project Start Date in Project Data page."
     )
 
     st.stop()
 
 df = st.session_state["schedule_df"].copy()
 
+project_start = st.session_state["project_start_date"]
+
+project_name = st.session_state.get(
+    "project_name",
+    "-"
+)
+
+project_number = st.session_state.get(
+    "project_number",
+    "-"
+)
+
+st.info(
+    f"""
+Project: {project_name}
+
+Project Number: {project_number}
+
+Project Start Date: {project_start.strftime('%d-%b-%Y')}
+"""
+)
+
 # =====================================================
-# USER ACTIVITIES
+# TOPOLOGICAL SORT
 # =====================================================
 
-user_df = df[
-    df["Logic Type"] == "USER"
-].copy()
+def build_schedule_order(df):
 
-st.subheader("Bulk Logic Assignment")
+    graph = defaultdict(list)
+
+    indegree = {}
+
+    activities = df["Activity ID"].tolist()
+
+    for act in activities:
+
+        indegree[act] = 0
+
+    for _, row in df.iterrows():
+
+        activity = row["Activity ID"]
+
+        predecessors = [
+
+            row.get("Pred1", ""),
+            row.get("Pred2", ""),
+            row.get("Pred3", "")
+
+        ]
+
+        for pred in predecessors:
+
+            pred = str(pred).strip()
+
+            if pred and pred != "nan":
+
+                graph[pred].append(activity)
+
+                indegree[activity] += 1
+
+    queue = deque()
+
+    for act in activities:
+
+        if indegree[act] == 0:
+
+            queue.append(act)
+
+    ordered = []
+
+    while queue:
+
+        node = queue.popleft()
+
+        ordered.append(node)
+
+        for succ in graph[node\]:
+
+            indegree[succ] -= 1
+
+            if indegree[succ] == 0:
+
+                queue.append(succ)
+
+    return ordered
+
+# =====================================================
+# WORKING DAY CALENDAR
+# =====================================================
+
+def add_working_days(
+    start_date,
+    duration,
+    calendar_type
+):
+
+    current_date = start_date
+
+    days_added = 0
+
+    while days_added < duration - 1:
+
+        current_date += timedelta(days=1)
+
+        # 5 Day Calendar
+        if calendar_type == "5D":
+
+            if current_date.weekday() < 5:
+                days_added += 1
+
+        # 6 Day Calendar
+        else:
+
+            if current_date.weekday() < 6:
+                days_added += 1
+
+    return current_date
+
+# =====================================================
+# BULK LOGIC ASSIGNMENT
+# =====================================================
+
+st.subheader("🔗 Bulk Predecessor Assignment")
+
+user_df = df[df["Logic Type"] == "USER"]
 
 if len(user_df) > 0:
 
@@ -44,8 +173,7 @@ if len(user_df) > 0:
 
     with col1:
 
-        successor = st.selectbox(
-            "Successor Activity",
+        successor = st. "Successor Activity",
             activity_options
         )
 
@@ -115,7 +243,7 @@ if len(user_df) > 0:
 
 st.divider()
 
-st.subheader("Logic Summary")
+st.subheader("📋 Logic Summary")
 
 logic_cols = [
 
@@ -137,7 +265,7 @@ available_cols = [
 st.dataframe(
     df[available_cols],
     width="stretch",
-    height=250,
+    height=300,
     hide_index=True
 )
 
@@ -147,7 +275,7 @@ st.dataframe(
 
 st.divider()
 
-st.subheader("Logic Validation")
+st.subheader("✅ Logic Validation")
 
 issues = []
 
@@ -161,7 +289,7 @@ for _, row in df.iterrows():
         row["Activity ID"]
     )
 
-    preds = [
+    predecessors = [
 
         str(row.get("Pred1", "")).strip(),
         str(row.get("Pred2", "")).strip(),
@@ -169,7 +297,7 @@ for _, row in df.iterrows():
 
     ]
 
-    for pred in preds:
+    for pred in predecessors:
 
         if pred == "" or pred == "nan":
             continue
@@ -186,40 +314,6 @@ for _, row in df.iterrows():
                 f"{activity_id} has invalid predecessor {pred}"
             )
 
-# Basic circular logic check
-
-for _, row in df.iterrows():
-
-    activity = str(row["Activity ID"])
-
-    for pred_col in ["Pred1", "Pred2", "Pred3"]:
-
-        pred = str(
-            row.get(pred_col, "")
-        ).strip()
-
-        if pred == "" or pred == "nan":
-            continue
-
-        pred_rows = df[
-            df["Activity ID"] == pred
-        ]
-
-        if len(pred_rows) > 0:
-
-            p1 = str(
-                pred_rows.iloc[0].get(
-                    "Pred1",
-                    ""
-                )
-            ).strip()
-
-            if p1 == activity:
-
-                issues.append(
-                   f"Circular Logic: {activity} ↔ {pred}"
-                )
-
 if issues:
 
     st.error(
@@ -228,41 +322,61 @@ if issues:
 
     for issue in issues:
 
-        st.write(
-            f"❌ {issue}"
-        )
+        st.write(f"❌ {issue}")
 
 else:
 
     st.success(
-        "✅ No Logic Issues Found"
+        "No Logic Issues Found"
     )
 
 # =====================================================
-# DATE CALCULATOR
+# CALENDAR RULES
 # =====================================================
 
 st.divider()
 
-st.subheader("📅 Schedule Calculation")
+st.info("""
+Calendar Rules
 
-project_start = st.date_input(
-    "Project Start Date"
-)
+• ENGG DM = 5 Day Calendar (Mon-Fri)
+
+• BM / BE / SC / WS-P / WS-H / MA = 6 Day Calendar (Mon-Sat)
+""")
+
+# =====================================================
+# CALCULATE SCHEDULE
+# =====================================================
+
+st.subheader("📅 Calculate Schedule")
 
 if st.button("Calculate Schedule"):
 
-    schedule_df = df.copy()
+    schedule_df = st.session_state[
+        "schedule_df"
+    ].copy()
+
+    schedule_order = build_schedule_order(
+        schedule_df
+    )
+
+    if len(schedule_order) != len(schedule_df):
+
+        st.error(
+            "Circular Logic Detected. Schedule Cannot Be Calculated."
+        )
+
+        st.stop()
 
     activity_dates = {}
 
-    if "Start Date" not in schedule_df.columns:
-        schedule_df["Start Date"] = None
+    for activity_id in schedule_order:
 
-    if "Finish Date" not in schedule_df.columns:
-        schedule_df["Finish Date"] = None
+        row = schedule_df[
+            schedule_df["Activity ID"] == activity_id
+        ].iloc[0]
 
-    for idx, row in schedule_df.iterrows():
+        idx = row.name
 
         duration = int(
             row["Duration"]
@@ -293,10 +407,8 @@ if st.button("Calculate Schedule"):
 
             if (
                 pred != ""
-                and
-                pred != "nan"
-                and
-                pred in activity_dates
+                and pred != "nan"
+                and pred in activity_dates
             ):
 
                 predecessor_dates.append(
@@ -315,56 +427,46 @@ if st.button("Calculate Schedule"):
 
                 start_date = (
                     max(
-                        x["Finish"]
-                        for x in predecessor_dates
-                    )
-                    + timedelta(
-                        days=1 + lag
-                    )
+                        p["Finish"]
+                        for p in predecessor_dates
+                    ) + timedelta(days=1 + lag)
                 )
 
             elif relationship == "SS":
 
                 start_date = (
                     max(
-                        x["Start"]
-                        for x in predecessor_dates
-                    )
-                    + timedelta(days=lag)
+                        p["Start"]
+                        for p in predecessor_dates
+                    ) + timedelta(days=lag)
                 )
 
             elif relationship == "FF":
 
-                finish_date = (
+                finish_ref = (
                     max(
-                        x["Finish"]
-                        for x in predecessor_dates
-                    )
-                    + timedelta(days=lag)
+                        p["Finish"]
+                        for p in predecessor_dates
+                    ) + timedelta(days=lag)
                 )
 
                 start_date = (
-                    finish_date
-                    - timedelta(
-                        days=duration - 1
-                    )
+                    finish_ref -
+                    timedelta(days=duration - 1)
                 )
 
             elif relationship == "SF":
 
-                finish_date = (
+                finish_ref = (
                     max(
-                        x["Start"]
-                        for x in predecessor_dates
-                    )
-                    + timedelta(days=lag)
+                        p["Start"]
+                        for p in predecessor_dates
+                    ) + timedelta(days=lag)
                 )
 
                 start_date = (
-                    finish_date
-                    - timedelta(
-                        days=duration - 1
-                    )
+                    finish_ref -
+                    timedelta(days=duration - 1)
                 )
 
             else:
@@ -373,20 +475,29 @@ if st.button("Calculate Schedule"):
                     project_start
                 )
 
-        finish_date = (
-            start_date
-            + timedelta(
-                days=duration - 1
-            )
+        scope_curve = str(
+            row["S-Curve Scope"]
+        ).upper()
+
+        if "ENG" in scope_curve:
+
+            calendar_type = "5D"
+
+        else:
+
+            calendar_type = "6D"
+
+        finish_date = add_working_days(
+            start_date,
+            duration,
+            calendar_type
         )
 
         activity_dates[
-            row["Activity ID"]
+            activity_id
         ] = {
-
             "Start": start_date,
             "Finish": finish_date
-
         }
 
         schedule_df.loc[
@@ -398,6 +509,11 @@ if st.button("Calculate Schedule"):
             idx,
             "Finish Date"
         ] = finish_date
+
+        schedule_df.loc[
+            idx,
+            "Calendar"
+        ] = calendar_type
 
     st.session_state[
         "schedule_df"
@@ -413,7 +529,7 @@ if st.button("Calculate Schedule"):
 
 st.divider()
 
-st.subheader("Current Schedule")
+st.subheader("📊 Current Schedule")
 
 review_df = st.session_state["schedule_df"]
 
@@ -432,24 +548,23 @@ st.divider()
 
 st.subheader("📥 Export Schedule")
 
-buffer = BytesIO()
+excel_buffer = BytesIO()
 
 with pd.ExcelWriter(
-    buffer,
+    excel_buffer,
     engine="openpyxl"
 ) as writer:
 
     review_df.to_excel(
         writer,
-        index=False,
-        sheet_name="Schedule"
+        sheet_name="Schedule",
+        index=False
     )
 
 st.download_button(
-    label="📥 Download Excel",
-    data=buffer.getvalue(),
-    file_name="TKIL_Schedule.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    "📥 Download Excel Schedule",
+    excel_buffer.getvalue(),
+    "TKIL_Schedule.xlsx"
 )
 
 csv_data = review_df.to_csv(
@@ -457,8 +572,7 @@ csv_data = review_df.to_csv(
 )
 
 st.download_button(
-    label="📥 Download CSV",
-    data=csv_data,
-    file_name="TKIL_Schedule.csv",
-    mime="text/csv"
+    "📥 Download CSV Schedule",
+    csv_data,
+    "TKIL_Schedule.csv"
 )
