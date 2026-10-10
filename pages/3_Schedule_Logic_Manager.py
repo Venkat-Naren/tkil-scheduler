@@ -86,7 +86,7 @@ def build_schedule_order(df):
 
         ordered.append(node)
 
-        for succ in graph[node\]:
+        for succ in graph[node]:
 
             indegree[succ] -= 1
 
