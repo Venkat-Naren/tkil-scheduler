@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 from datetime import timedelta
-from io import BytesIO
 from collections import defaultdict, deque
+from io import BytesIO
 
 st.set_page_config(
     page_title="Schedule Logic Manager",
@@ -12,22 +12,42 @@ st.set_page_config(
 st.title("🔗 Schedule Logic Manager")
 
 # =====================================================
-# VALIDATIONS
+# VALIDATION
 # =====================================================
 
 if "schedule_df" not in st.session_state:
-    st.warning("Please Generate Schedule First.")
+
+    st.warning(
+        "Please Generate Schedule First."
+    )
+
     st.stop()
 
 if "project_start_date" not in st.session_state:
-    st.warning("Please set Project Start Date in Project Data page.")
+
+    st.warning(
+        "Please Set Project Start Date In Project Data Page."
+    )
+
     st.stop()
 
 df = st.session_state["schedule_df"].copy()
 
 project_start = st.session_state["project_start_date"]
-project_name = st.session_state.get("project_name", "-")
-project_number = st.session_state.get("project_number", "-")
+
+project_name = st.session_state.get(
+    "project_name",
+    "-"
+)
+
+project_number = st.session_state.get(
+    "project_number",
+    "-"
+)
+
+# =====================================================
+# PROJECT INFO
+# =====================================================
 
 st.info(
     f"""
@@ -40,42 +60,256 @@ Project Start Date: {project_start.strftime('%d-%b-%Y')}
 )
 
 # =====================================================
+# SCHEDULE HEALTH
+# =====================================================
+
+st.subheader("📊 Schedule Health")
+
+total_activities = len(df)
+
+user_logic = len(
+    df[df["Logic Type"] == "USER"]
+)
+
+missing_logic = len(
+    df[
+        (df["Logic Type"] == "USER")
+        &
+        (
+            df["Pred1"].fillna("")
+            == ""
+        )
+    ]
+)
+
+c1, c2, c3 = st.columns(3)
+
+c1.metric(
+    "Activities",
+    total_activities
+)
+
+c2.metric(
+    "User Logic Activities",
+    user_logic
+)
+
+c3.metric(
+    "Missing Logic",
+    missing_logic
+)
+
+# =====================================================
+# FILTERS
+# =====================================================
+
+st.divider()
+
+st.subheader("🔍 Filters")
+
+col1, col2 = st.columns(2)
+
+with col1:
+
+    search_text = st.text_input(
+        "Search Activity"
+    )
+
+with col2:
+
+    selected_scope = st.multiselect(
+        "Filter WBS Scope",
+        sorted(
+            df["WBS Scope"].unique()
+        ),
+        default=sorted(
+            df["WBS Scope"].unique()
+        )
+    )
+
+filtered_df = df.copy()
+
+filtered_df = filtered_df[
+    filtered_df["WBS Scope"]
+    .isin(selected_scope)
+]
+
+if search_text:
+
+    filtered_df = filtered_df[
+        filtered_df[
+            "Activity Description"
+        ].str.contains(
+            search_text,
+            case=False,
+            na=False
+        )
+    ]
+
+# =====================================================
+# EDITABLE USER LOGIC GRID
+# =====================================================
+
+st.divider()
+
+st.subheader("🔗 User Logic Activities")
+
+editable_logic_df = filtered_df[
+    filtered_df["Logic Type"] == "USER"
+][[
+    "Activity ID",
+    "Activity Description",
+    "Pred1",
+    "Pred2",
+    "Pred3",
+    "Relationship",
+    "Lag"
+]]
+
+edited_logic = st.data_editor(
+    editable_logic_df,
+    width="stretch",
+    height=400,
+    hide_index=True
+)
+
+if st.button("💾 Save Logic Grid"):
+
+    for _, edit_row in edited_logic.iterrows():
+
+        act_id = edit_row["Activity ID"]
+
+        idx = df[
+            df["Activity ID"] == act_id
+        ].index[0]
+
+        df.loc[idx, "Pred1"] = edit_row["Pred1"]
+
+        df.loc[idx, "Pred2"] = edit_row["Pred2"]
+
+        df.loc[idx, "Pred3"] = edit_row["Pred3"]
+
+        df.loc[idx, "Relationship"] = (
+            edit_row["Relationship"]
+        )
+
+        df.loc[idx, "Lag"] = edit_row["Lag"]
+
+    st.session_state[
+        "schedule_df"
+    ] = df
+
+    st.success(
+        "Logic Grid Saved"
+    )
+
+# =====================================================
+# VALIDATION
+# =====================================================
+
+st.divider()
+
+st.subheader("✅ Logic Validation")
+
+issues = []
+
+activity_ids = set(
+    df["Activity ID"].astype(str)
+)
+
+for _, row in df.iterrows():
+
+    activity_id = str(
+        row["Activity ID"]
+    )
+
+    predecessors = [
+
+        str(row.get("Pred1", "")).strip(),
+        str(row.get("Pred2", "")).strip(),
+        str(row.get("Pred3", "")).strip()
+
+    ]
+
+    for pred in predecessors:
+
+        if pred in ["", "nan"\]:
+            continue
+
+        if pred == activity_id:
+
+            issues.append(
+                f"{activity_id} references itself"
+            )
+
+        if pred not in activity_ids:
+
+            issues.append(
+                f"{activity_id} has invalid predecessor {pred}"
+            )
+
+if issues:
+
+    st.error(
+        f"{len(issues)} Issue(s) Found"
+    )
+
+    for issue in issues:
+
+        st.write(
+            f"❌ {issue}"
+        )
+
+else:
+
+    st.success(
+        "No Logic Issues Found"
+    )
+
+# =====================================================
 # TOPOLOGICAL SORT
 # =====================================================
 
 def build_schedule_order(df):
 
     graph = defaultdict(list)
+
     indegree = {}
 
     activities = df["Activity ID"].tolist()
 
     for act in activities:
+
         indegree[act] = 0
 
     for _, row in df.iterrows():
 
         activity = row["Activity ID"]
 
-        preds = [
+        predecessors = [
+
             row.get("Pred1", ""),
             row.get("Pred2", ""),
             row.get("Pred3", "")
+
         ]
 
-        for pred in preds:
+        for pred in predecessors:
 
             pred = str(pred).strip()
 
             if pred and pred != "nan":
 
                 graph[pred].append(activity)
+
                 indegree[activity] += 1
 
     queue = deque()
 
     for act in activities:
+
         if indegree[act] == 0:
+
             queue.append(act)
 
     ordered = []
@@ -91,12 +325,12 @@ def build_schedule_order(df):
             indegree[succ] -= 1
 
             if indegree[succ] == 0:
+
                 queue.append(succ)
 
     return ordered
 
-# =====================================================
-# WORKING DAY CALENDAR
+# =================================CALENDAR FUNCTION
 # =====================================================
 
 def add_working_days(
@@ -126,196 +360,39 @@ def add_working_days(
     return current_date
 
 # =====================================================
-# BULK LOGIC ASSIGNMENT
-# =====================================================
-
-st.subheader("🔗 Bulk Predecessor Assignment")
-
-user_df = df[df["Logic Type"] == "USER"]
-
-if len(user_df) == 0:
-
-    st.warning("No USER activities found.")
-
-else:
-
-    activity_options = [
-        f"{row['Activity ID']} | {row['Activity Description']}"
-        for _, row in user_df.iterrows()
-    ]
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-
-        successor = st.selectbox(
-            "Successor Activity",
-            activity_options
-        )
-
-        pred1 = st.selectbox(
-            "Pred1",
-            [""] + activity_options
-        )
-
-        pred2 = st.selectbox(
-            "Pred2",
-            [""] + activity_options
-        )
-
-        pred3 = st.selectbox(
-            "Pred3",
-            [""] + activity_options
-        )
-
-    with col2:
-
-        relationship = st.selectbox(
-            "Relationship",
-            ["FS", "SS", "FF", "SF"]
-        )
-
-        lag = st.number_input(
-            "Lag Days",
-            value=0
-        )
-
-    if st.button("Assign Logic"):
-
-        successor_id = successor.split("|")[0].strip()
-
-        idx = df[
-            df["Activity ID"] == successor_id
-        ].index[0]
-
-        df.loc[idx, "Pred1"] = (
-            pred1.split("|")[0].strip()
-            if pred1 else ""
-        )
-
-        df.loc[idx, "Pred2"] = (
-            pred2.split("|")[0].strip()
-            if pred2 else ""
-        )
-
-        df.loc[idx, "Pred3"] = (
-            pred3.split("|")[0].strip()
-            if pred3 else ""
-        )
-
-        df.loc[idx, "Relationship"] = relationship
-
-        df.loc[idx, "Lag"] = lag
-
-        st.session_state["schedule_df"] = df
-
-        st.success(
-            f"Logic Updated For {successor_id}"
-        )
-
-# =====================================================
-# LOGIC SUMMARY
+# CALENDAR RULES
 # =====================================================
 
 st.divider()
 
-st.subheader("📋 Logic Summary")
+st.info("""
+Calendar Rules
 
-logic_cols = [
-    "Activity ID",
-    "Activity Description",
-    "Pred1",
-    "Pred2",
-    "Pred3",
-    "Relationship",
-    "Lag"
-]
+• ENGG DM = 5 Day Calendar (Mon-Fri)
 
-logic_cols = [
-    c for c in logic_cols
-    if c in df.columns
-]
-
-st.dataframe(
-    df[logic_cols],
-    width="stretch",
-    height=300,
-    hide_index=True
-)
-
-# =====================================================
-# VALIDATION
-# =====================================================
-
-st.divider()
-
-st.subheader("✅ Logic Validation")
-
-issues = []
-
-activity_ids = set(
-    df["Activity ID"].astype(str)
-)
-
-for _, row in df.iterrows():
-
-    activity_id = str(
-        row["Activity ID"]
-    )
-
-    preds = [
-        str(row.get("Pred1", "")).strip(),
-        str(row.get("Pred2", "")).strip(),
-        str(row.get("Pred3", "")).strip()
-    ]
-
-    for pred in preds:
-
-        if pred == "" or pred == "nan":
-            continue
-
-        if pred == activity_id:
-
-            issues.append(
-                f"{activity_id} references itself"
-            )
-
-        if pred not in activity_ids:
-
-            issues.append(
-                f"{activity_id} has invalid predecessor {pred}"
-            )
-
-if issues:
-
-    st.error(f"{len(issues)} Issue(s) Found")
-
-    for issue in issues:
-        st.write(f"❌ {issue}")
-
-else:
-
-    st.success("✅ No Logic Issues Found")
+• BM / BE / SC / WS-P / WS-H / MA = 6 Day Calendar (Mon-Sat)
+""")
 
 # =====================================================
 # CALCULATE SCHEDULE
 # =====================================================
 
-st.divider()
-
 st.subheader("📅 Calculate Schedule")
 
 if st.button("Calculate Schedule"):
 
-    schedule_df = st.session_state["schedule_df"].copy()
+    schedule_df = df.copy()
 
-    schedule_order = build_schedule_order(schedule_df)
+    schedule_order = build_schedule_order(
+        schedule_df
+    )
 
     if len(schedule_order) != len(schedule_df):
 
         st.error(
-            "Circular Logic Detected. Schedule Cannot Be Calculated."
+            "Circular Logic Detected"
         )
+
         st.stop()
 
     activity_dates = {}
@@ -323,18 +400,27 @@ if st.button("Calculate Schedule"):
     for activity_id in schedule_order:
 
         row = schedule_df[
-            schedule_df["Activity ID"] == activity_id
+            schedule_df["Activity ID"]
+            == activity_id
         ].iloc[0]
 
         idx = row.name
 
-        duration = int(row["Duration"])
+        duration = int(
+            row["Duration"]
+        )
 
-        lag = int(row.get("Lag", 0))
+        lag = int(
+            row.get("Lag", 0)
+        )
 
         predecessor_dates = []
 
-        for pred_col in ["Pred1", "Pred2", "Pred3"]:
+        for pred_col in [
+            "Pred1",
+            "Pred2",
+            "Pred3"
+        ]:
 
             pred = str(
                 row.get(pred_col, "")
@@ -345,13 +431,16 @@ if st.button("Calculate Schedule"):
                 and pred != "nan"
                 and pred in activity_dates
             ):
+
                 predecessor_dates.append(
                     activity_dates[pred]
                 )
 
         if len(predecessor_dates) == 0:
 
-            start_date = pd.Timestamp(project_start)
+            start_date = pd.Timestamp(
+                project_start
+            )
 
         else:
 
@@ -368,8 +457,11 @@ if st.button("Calculate Schedule"):
         ).upper()
 
         if "ENG" in scope_curve:
+
             calendar_type = "5D"
+
         else:
+
             calendar_type = "6D"
 
         finish_date = add_working_days(
@@ -378,28 +470,46 @@ if st.button("Calculate Schedule"):
             calendar_type
         )
 
-        activity_dates[activity_id] = {
+        activity_dates[
+            activity_id
+        ] = {
+
             "Start": start_date,
+
             "Finish": finish_date
+
         }
 
-        schedule_df.loc[idx, "Start Date"] = start_date
-        schedule_df.loc[idx, "Finish Date"] = finish_date
-        schedule_df.loc[idx, "Calendar"] = calendar_type
+        schedule_df.loc[
+            idx,
+            "Start Date"
+        ] = start_date
 
-    st.session_state["schedule_df"] = schedule_df
+        schedule_df.loc[
+            idx,
+            "Finish Date"
+        ] = finish_date
+
+        schedule_df.loc[
+            idx,
+            "Calendar"
+        ] = calendar_type
+
+    st.session_state[
+        "schedule_df"
+    ] = schedule_df
 
     st.success(
         "✅ Schedule Calculated Successfully"
     )
 
 # =====================================================
-# REVIEW
+# SCHEDULE REVIEW
 # =====================================================
 
 st.divider()
 
-st.subheader("📊 Current Schedule")
+st.subheader("📋 Schedule Review")
 
 review_df = st.session_state["schedule_df"]
 
@@ -432,15 +542,17 @@ with pd.ExcelWriter(
     )
 
 st.download_button(
-    "📥 Download Excel Schedule",
-    excel_buffer.getvalue(),
-    "TKIL_Schedule.xlsx"
+    label="📥 Download Excel Schedule",
+    data=excel_buffer.getvalue(),
+    file_name="TKIL_Schedule.xlsx"
 )
 
-csv_data = review_df.to_csv(index=False)
+csv_data = review_df.to_csv(
+    index=False
+)
 
 st.download_button(
-    "📥 Download CSV Schedule",
-    csv_data,
-    "TKIL_Schedule.csv"
+    label="📥 Download CSV Schedule",
+    data=csv_data,
+    file_name="TKIL_Schedule.csv"
 )
