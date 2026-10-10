@@ -1,14 +1,15 @@
 import streamlit as st
 
-from utils.theme import (
-    init_theme,
-    theme_toggle,
-    apply_theme
+from utils.theme import apply_theme
+
+if "dark_mode" not in st.session_state:
+    st.session_state["dark_mode"] = False
+
+st.session_state["dark_mode"] = st.sidebar.toggle(
+    "🌙 Dark Mode",
+    value=st.session_state["dark_mode"],
+    key="global_dark_mode"
 )
-
-init_theme()
-
-theme_toggle()
 
 apply_theme()
 
