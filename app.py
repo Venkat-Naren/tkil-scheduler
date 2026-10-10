@@ -14,12 +14,12 @@ st.session_state["dark_mode"] = st.sidebar.toggle(
 apply_theme()
 
 st.set_page_config(
-    page_title="TKIL Scheduler",
+    page_title="Scheduler Engine",
     page_icon="📅",
     layout="wide"
 )
 
-st.title("📅 TKIL Automated Scheduler")
+st.title("📅 TKIL Procurement Automated Scheduler")
 
 st.markdown("""
 ### Welcome
