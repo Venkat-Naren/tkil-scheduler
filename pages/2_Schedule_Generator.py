@@ -8,7 +8,9 @@ st.set_page_config(
 
 st.title("⚙️ Schedule Generator")
 
-# Check WBS Upload
+# --------------------------------------------------
+# Check Data
+# --------------------------------------------------
 
 if "wbs_df" not in st.session_state:
 
@@ -17,8 +19,6 @@ if "wbs_df" not in st.session_state:
     )
 
     st.stop()
-
-# Check Fragnet Master
 
 if "fragnet_master" not in st.session_state:
 
@@ -39,6 +39,10 @@ st.dataframe(
     width="stretch"
 )
 
+# --------------------------------------------------
+# Generate Schedule
+# --------------------------------------------------
+
 if st.button("Generate Schedule"):
 
     schedule = []
@@ -58,7 +62,7 @@ if st.button("Generate Schedule"):
             == scope
         ]
 
-        if len(matching_fragnets) == 0:
+        if matching_fragnets.empty:
 
             st.warning(
                 f"No Fragnets Found For Scope: {scope}"
@@ -66,12 +70,47 @@ if st.button("Generate Schedule"):
 
             continue
 
+        previous_activity = ""
+
         for _, fragnet in matching_fragnets.iterrows():
+
+            activity_id = f"A{activity_counter:04d}"
+
+            fragnet_desc = str(
+                fragnet["Activity Description"]
+            )
+
+            activity_name = (
+                f"{wbs['WBS Name']} - "
+                f"{fragnet_desc}"
+            )
+
+            # ----------------------------------------
+            # USER DEFINES ONLY FIRST FRAGNET
+            # ----------------------------------------
+
+            if (
+                "Release of Tech. Specifications/PR"
+                in fragnet_desc
+                or
+                "Release of mfg drgs/JRM"
+                in fragnet_desc
+            ):
+
+                logic_type = "USER"
+
+                pred1 = ""
+
+            else:
+
+                logic_type = "AUTO FS"
+
+                pred1 = previous_activity
 
             schedule.append({
 
                 "Activity ID":
-                    f"A{activity_counter:04d}",
+                    activity_id,
 
                 "TKIL SAP WBS Code":
                     wbs["TKIL SAP WBS Code"],
@@ -86,8 +125,7 @@ if st.button("Generate Schedule"):
                     fragnet["Fragnet ID"],
 
                 "Activity Description":
-                    f"{wbs['WBS Name']} - "
-                    f"{fragnet['Activity Description']}",
+                    activity_name,
 
                 "S-Curve Scope":
                     fragnet["S-Curve Scope"],
@@ -95,23 +133,36 @@ if st.button("Generate Schedule"):
                 "Duration":
                     fragnet["Duration (Days)"],
 
-                "Pred1": "",
+                "Logic Type":
+                    logic_type,
 
-                "Pred2": "",
+                "Pred1":
+                    pred1,
 
-                "Pred3": "",
+                "Pred2":
+                    "",
 
-                "Relationship": "FS",
+                "Pred3":
+                    "",
 
-                "Lag": 0,
+                "Relationship":
+                    "FS",
 
-                "Start Date": None,
+                "Lag":
+                    0,
 
-                "Finish Date": None,
+                "Start Date":
+                    None,
 
-                "% Complete": 0
+                "Finish Date":
+                    None,
+
+                "% Complete":
+                    0
 
             })
+
+            previous_activity = activity_id
 
             activity_counter += 1
 
