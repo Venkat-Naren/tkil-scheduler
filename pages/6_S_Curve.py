@@ -1,49 +1,74 @@
 import streamlit as st
-import pandas as pd
-import plotly.express as px
+import plotly.graph_objects as go
 
-st.title("📈 S-Curve")
+st.title("📈 Planned vs Actual S-Curve")
 
 if "schedule_df" not in st.session_state:
-    st.warning("Generate schedule first.")
+
     st.stop()
 
-df = st.session_state["schedule_df"].copy()
+df = st.session_state["schedule_df"]
 
-total_duration = df["Duration"].sum()
+if "% Complete" not in df.columns:
+
+    df["% Complete"] = 0
 
 df["Weight"] = (
-    df["Duration"] / total_duration
+
+    df["Duration"]
+
+    /
+
+    df["Duration"].sum()
+
 ) * 100
 
-df["Cumulative"] = df["Weight"].cumsum()
-
-fig = px.line(
-    df,
-    x=df.index + 1,
-    y="Cumulative",
-    markers=True,
-    title="Planned S-Curve"
+df["Planned"] = (
+    df["Weight"]
+    .cumsum()
 )
 
-fig.update_layout(
-    xaxis_title="Activity Sequence",
-    yaxis_title="Cumulative Progress %"
+df["Actual"] = (
+    (
+        df["Weight"]
+        *
+        df["% Complete"]
+        / 100
+    )
+    .cumsum()
+)
+
+fig = go.Figure()
+
+fig.add_trace(
+
+    go.Scatter(
+
+        x=df.index,
+
+        y=df["Planned"],
+
+        name="Planned"
+
+    )
+
+)
+
+fig.add_trace(
+
+    go.Scatter(
+
+        x=df.index,
+
+        y=df["Actual"],
+
+        name="Actual"
+
+    )
+
 )
 
 st.plotly_chart(
     fig,
-    use_container_width=True
-)
-
-st.dataframe(
-    df[
-        [
-            "Activity ID",
-            "Activity Description",
-            "Weight",
-            "Cumulative"
-        ]
-    ],
-    use_container_width=True
+    width="stretch"
 )
