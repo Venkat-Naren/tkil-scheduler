@@ -16,34 +16,18 @@ st.title("🔗 Schedule Logic Manager")
 # =====================================================
 
 if "schedule_df" not in st.session_state:
-
-    st.warning(
-        "Please Generate Schedule First."
-    )
-
+    st.warning("Please Generate Schedule First.")
     st.stop()
 
 if "project_start_date" not in st.session_state:
-
-    st.warning(
-        "Please set Project Start Date in Project Data page."
-    )
-
+    st.warning("Please set Project Start Date in Project Data page.")
     st.stop()
 
 df = st.session_state["schedule_df"].copy()
 
 project_start = st.session_state["project_start_date"]
-
-project_name = st.session_state.get(
-    "project_name",
-    "-"
-)
-
-project_number = st.session_state.get(
-    "project_number",
-    "-"
-)
+project_name = st.session_state.get("project_name", "-")
+project_number = st.session_state.get("project_number", "-")
 
 st.info(
     f"""
@@ -62,43 +46,36 @@ Project Start Date: {project_start.strftime('%d-%b-%Y')}
 def build_schedule_order(df):
 
     graph = defaultdict(list)
-
     indegree = {}
 
     activities = df["Activity ID"].tolist()
 
     for act in activities:
-
         indegree[act] = 0
 
     for _, row in df.iterrows():
 
         activity = row["Activity ID"]
 
-        predecessors = [
-
+        preds = [
             row.get("Pred1", ""),
             row.get("Pred2", ""),
             row.get("Pred3", "")
-
         ]
 
-        for pred in predecessors:
+        for pred in preds:
 
             pred = str(pred).strip()
 
             if pred and pred != "nan":
 
                 graph[pred].append(activity)
-
                 indegree[activity] += 1
 
     queue = deque()
 
     for act in activities:
-
         if indegree[act] == 0:
-
             queue.append(act)
 
     ordered = []
@@ -109,12 +86,11 @@ def build_schedule_order(df):
 
         ordered.append(node)
 
-        for succ in graph[node]:
+        for succ in graph[node\]:
 
             indegree[succ] -= 1
 
             if indegree[succ] == 0:
-
                 queue.append(succ)
 
     return ordered
@@ -137,13 +113,11 @@ def add_working_days(
 
         current_date += timedelta(days=1)
 
-        # 5 Day Calendar
         if calendar_type == "5D":
 
             if current_date.weekday() < 5:
                 days_added += 1
 
-        # 6 Day Calendar
         else:
 
             if current_date.weekday() < 6:
@@ -159,21 +133,23 @@ st.subheader("🔗 Bulk Predecessor Assignment")
 
 user_df = df[df["Logic Type"] == "USER"]
 
-if len(user_df) > 0:
+if len(user_df) == 0:
+
+    st.warning("No USER activities found.")
+
+else:
 
     activity_options = [
-
         f"{row['Activity ID']} | {row['Activity Description']}"
-
         for _, row in user_df.iterrows()
-
     ]
 
     col1, col2 = st.columns(2)
 
     with col1:
 
-        successor = st. "Successor Activity",
+        successor = st.selectbox(
+            "Successor Activity",
             activity_options
         )
 
@@ -246,7 +222,6 @@ st.divider()
 st.subheader("📋 Logic Summary")
 
 logic_cols = [
-
     "Activity ID",
     "Activity Description",
     "Pred1",
@@ -254,16 +229,15 @@ logic_cols = [
     "Pred3",
     "Relationship",
     "Lag"
-
 ]
 
-available_cols = [
+logic_cols = [
     c for c in logic_cols
     if c in df.columns
 ]
 
 st.dataframe(
-    df[available_cols],
+    df[logic_cols],
     width="stretch",
     height=300,
     hide_index=True
@@ -283,21 +257,15 @@ activity_ids = set(
     df["Activity ID"].astype(str)
 )
 
-for _, row in df.iterrows():
+for _, row in tivity_id = str(row["Activity ID"])
 
-    activity_id = str(
-        row["Activity ID"]
-    )
-
-    predecessors = [
-
+    preds = [
         str(row.get("Pred1", "")).strip(),
         str(row.get("Pred2", "")).strip(),
         str(row.get("Pred3", "")).strip()
-
     ]
 
-    for pred in predecessors:
+    for pred in preds:
 
         if pred == "" or pred == "nan":
             continue
@@ -316,56 +284,34 @@ for _, row in df.iterrows():
 
 if issues:
 
-    st.error(
-        f"{len(issues)} Issue(s) Found"
-    )
+    st.error(f"{len(issues)} Issue(s) Found")
 
     for issue in issues:
-
         st.write(f"❌ {issue}")
 
 else:
 
-    st.success(
-        "No Logic Issues Found"
-    )
-
-# =====================================================
-# CALENDAR RULES
-# =====================================================
-
-st.divider()
-
-st.info("""
-Calendar Rules
-
-• ENGG DM = 5 Day Calendar (Mon-Fri)
-
-• BM / BE / SC / WS-P / WS-H / MA = 6 Day Calendar (Mon-Sat)
-""")
+    st.success("✅ No Logic Issues Found")
 
 # =====================================================
 # CALCULATE SCHEDULE
 # =====================================================
 
+st.divider()
+
 st.subheader("📅 Calculate Schedule")
 
 if st.button("Calculate Schedule"):
 
-    schedule_df = st.session_state[
-        "schedule_df"
-    ].copy()
+    schedule_df = st.session_state["schedule_df"].copy()
 
-    schedule_order = build_schedule_order(
-        schedule_df
-    )
+    schedule_order = build_schedule_order(schedule_df)
 
     if len(schedule_order) != len(schedule_df):
 
         st.error(
             "Circular Logic Detected. Schedule Cannot Be Calculated."
         )
-
         st.stop()
 
     activity_dates = {}
@@ -378,113 +324,48 @@ if st.button("Calculate Schedule"):
 
         idx = row.name
 
-        duration = int(
-            row["Duration"]
-        )
+        duration = int(row["Duration"])
 
-        lag = int(
-            row.get("Lag", 0)
-        )
-
-        relationship = str(
-            row.get(
-                "Relationship",
-                "FS"
-            )
-        )
+        lag = int(row.get("Lag", 0))
 
         predecessor_dates = []
 
-        for pred_col in [
-            "Pred1",
-            "Pred2",
-            "Pred3"
-        ]:
+        for pred_col in ["Pred1", "Pred2", "Pred3"]:
 
             pred = str(
                 row.get(pred_col, "")
             ).strip()
 
             if (
-                pred != ""
+                pred
                 and pred != "nan"
                 and pred in activity_dates
             ):
-
                 predecessor_dates.append(
                     activity_dates[pred]
                 )
 
         if len(predecessor_dates) == 0:
 
-            start_date = pd.Timestamp(
-                project_start
-            )
+            start_date = pd.Timestamp(project_start)
 
         else:
 
-            if relationship == "FS":
-
-                start_date = (
-                    max(
-                        p["Finish"]
-                        for p in predecessor_dates
-                    ) + timedelta(days=1 + lag)
+            start_date = (
+                max(
+                    p["Finish"]
+                    for p in predecessor_dates
                 )
-
-            elif relationship == "SS":
-
-                start_date = (
-                    max(
-                        p["Start"]
-                        for p in predecessor_dates
-                    ) + timedelta(days=lag)
-                )
-
-            elif relationship == "FF":
-
-                finish_ref = (
-                    max(
-                        p["Finish"]
-                        for p in predecessor_dates
-                    ) + timedelta(days=lag)
-                )
-
-                start_date = (
-                    finish_ref -
-                    timedelta(days=duration - 1)
-                )
-
-            elif relationship == "SF":
-
-                finish_ref = (
-                    max(
-                        p["Start"]
-                        for p in predecessor_dates
-                    ) + timedelta(days=lag)
-                )
-
-                start_date = (
-                    finish_ref -
-                    timedelta(days=duration - 1)
-                )
-
-            else:
-
-                start_date = pd.Timestamp(
-                    project_start
-                )
+                + timedelta(days=1 + lag)
+            )
 
         scope_curve = str(
             row["S-Curve Scope"]
         ).upper()
 
         if "ENG" in scope_curve:
-
             calendar_type = "5D"
-
         else:
-
             calendar_type = "6D"
 
         finish_date = add_working_days(
@@ -493,31 +374,16 @@ if st.button("Calculate Schedule"):
             calendar_type
         )
 
-        activity_dates[
-            activity_id
-        ] = {
+        activity_dates[activity_id] = {
             "Start": start_date,
             "Finish": finish_date
         }
 
-        schedule_df.loc[
-            idx,
-            "Start Date"
-        ] = start_date
+        schedule_df.loc[idx, "Start Date"] = start_date
+        schedule_df.loc[idx, "Finish Date"] = finish_date
+        schedule_df.loc[idx, "Calendar"] = calendar_type
 
-        schedule_df.loc[
-            idx,
-            "Finish Date"
-        ] = finish_date
-
-        schedule_df.loc[
-            idx,
-            "Calendar"
-        ] = calendar_type
-
-    st.session_state[
-        "schedule_df"
-    ] = schedule_df
+    st.session_state["schedule_df"] = schedule_df
 
     st.success(
         "✅ Schedule Calculated Successfully"
@@ -567,9 +433,7 @@ st.download_button(
     "TKIL_Schedule.xlsx"
 )
 
-csv_data = review_df.to_csv(
-    index=False
-)
+csv_data = review_df.to_csv(index=False)
 
 st.download_button(
     "📥 Download CSV Schedule",
