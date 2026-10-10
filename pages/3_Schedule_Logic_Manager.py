@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import timedelta
+from io import BytesIO
 
 st.set_page_config(
     page_title="Schedule Logic Manager",
@@ -264,6 +265,47 @@ else:
 st.divider()
 
 st.subheader("📋 Current Schedule")
+
+# ====================================================
+# EXPORT SCHEDULE
+# ====================================================
+
+st.divider()
+
+st.subheader("📥 Export Schedule")
+
+schedule_export = st.session_state["schedule_df"]
+
+excel_buffer = BytesIO()
+
+with pd.ExcelWriter(
+    excel_buffer,
+    engine="openpyxl"
+) as writer:
+
+    schedule_export.to_excel(
+        writer,
+        sheet_name="Schedule",
+        index=False
+    )
+
+st.download_button(
+    label="📥 Download Schedule Excel",
+    data=excel_buffer.getvalue(),
+    file_name="TKIL_Schedule.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
+csv_data = schedule_export.to_csv(
+    index=False
+)
+
+st.download_button(
+    label="📥 Download Schedule CSV",
+    data=csv_data,
+    file_name="TKIL_Schedule.csv",
+    mime="text/csv"
+)
 
 st.dataframe(
     st.session_state["schedule_df"],
