@@ -1,91 +1,81 @@
 import streamlit as st
 
-def apply_theme(dark_mode):
+def init_theme():
 
-   if dark_mode:
+    if "dark_mode" not in st.session_state:
+        st.session_state["dark_mode"] = False
 
-    st.markdown(
-        """
+
+def theme_toggle():
+
+    st.sidebar.markdown("---")
+
+    st.session_state["dark_mode"] = st.sidebar.toggle(
+        "🌙 Dark Mode",
+        value=st.session_state["dark_mode"]
+    )
+
+
+def apply_theme():
+
+    dark_mode = st.session_state.get(
+        "dark_mode",
+        False
+    )
+
+    if dark_mode:
+
+        css = """
         <style>
 
-        .stApp {
-            background-color: #0E1117;
-            color: #FFFFFF;
+        .stApp{
+            background-color:#0E1117;
+            color:white;
         }
 
-        section[data-testid="stSidebar"] {
-            background-color: #161B22;
+        section[data-testid="stSidebar"]{
+            background-color:#161B22;
         }
 
-        /* DataFrame */
-
-        div[data-testid="stDataFrame"] {
-
-            border: 1px solid #30363D;
-            border-radius: 8px;
+        div[data-testid="metric-container"]{
+            background-color:#1F2937;
+            border:1px solid #374151;
+            border-radius:10px;
+            padding:15px;
         }
 
-        /* Table Header */
-
-        thead tr th {
-
-            background-color: #1F2937 !important;
-            color: #FFFFFF !important;
-            font-weight: bold !important;
+        thead tr th{
+            background-color:#1F2937 !important;
+            color:white !important;
         }
 
-        /* Table Cells */
-
-        tbody tr td {
-
-            background-color: #111827 !important;
-            color: #F9FAFB !important;
-            border-color: #374151 !important;
+        tbody tr td{
+            background-color:#111827 !important;
+            color:white !important;
         }
 
-        /* Alternate Row Shading */
-
-        tbody tr:nth-child(even) td {
-
-            background-color: #1F2937 !important;
-        }
-
-        /* Hover */
-
-        tbody tr:hover td {
-
-            background-color: #2563EB !important;
-            color: white !important;
-        }
-
-        /* Metric Cards */
-
-        div[data-testid="metric-container"] {
-
-            background-color: #1F2937;
-            border: 1px solid #374151;
-            padding: 15px;
-            border-radius: 10px;
-        }
-
-        /* Buttons */
-
-        .stButton button {
-
-            background-color: #2563EB;
-            color: white;
-            border-radius: 8px;
-            border: none;
-        }
-
-        /* Select Boxes */
-
-        div[data-baseweb="select"] {
-
-            background-color: #1F2937;
+        tbody tr:nth-child(even) td{
+            background-color:#1F2937 !important;
         }
 
         </style>
-        """,
+        """
+
+    else:
+
+        css = """
+        <style>
+
+        div[data-testid="metric-container"]{
+            border:1px solid #D1D5DB;
+            border-radius:10px;
+            padding:15px;
+        }
+
+        </style>
+        """
+
+    st.markdown(
+        css,
         unsafe_allow_html=True
     )
