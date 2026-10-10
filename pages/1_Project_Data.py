@@ -175,3 +175,46 @@ else:
     st.warning(
         "Upload both Fragnet Master and WBS Upload."
     )
+st.divider()
+
+st.subheader("🏗️ Project Information")
+
+col1, col2 = st.columns(2)
+
+with col1:
+
+    project_name = st.text_input(
+        "Project Name"
+    )
+
+    project_number = st.text_input(
+        "Project Number"
+    )
+
+with col2:
+
+    project_start_date = st.date_input(
+        "Project Start Date"
+    )
+
+st.session_state["project_name"] = project_name
+
+st.session_state["project_number"] = project_number
+
+st.session_state[
+    "project_start_date"
+] = project_start_date
+if (
+    "project_start_date"
+    in st.session_state
+):
+
+    st.success(
+        f"""
+Project: {project_name}
+
+Project Number: {project_number}
+
+Project Start Date: {project_start_date}
+"""
+    )
