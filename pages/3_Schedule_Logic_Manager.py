@@ -257,7 +257,11 @@ activity_ids = set(
     df["Activity ID"].astype(str)
 )
 
-for _, row in activity_id = str(row["Activity ID"])
+for _, row in df.iterrows():
+
+    activity_id = str(
+        row["Activity ID"]
+    )
 
     preds = [
         str(row.get("Pred1", "")).strip(),
