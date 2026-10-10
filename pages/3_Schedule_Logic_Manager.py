@@ -233,7 +233,7 @@ for _, row in df.iterrows():
 
     for pred in predecessors:
 
-        if pred in ["", "nan"\]:
+        if pred in ["", "nan"]:
             continue
 
         if pred == activity_id:
