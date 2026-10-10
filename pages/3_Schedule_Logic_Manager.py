@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-from datetime import timedelta
 from io import BytesIO
+from datetime import timedelta
 
 st.set_page_config(
     page_title="Schedule Logic Manager",
@@ -12,51 +12,43 @@ st.title("🔗 Schedule Logic Manager")
 
 if "schedule_df" not in st.session_state:
 
-    st.warning(
-        "Please Generate Schedule First."
-    )
+    st.warning("Generate Schedule First")
 
     st.stop()
 
 df = st.session_state["schedule_df"].copy()
 
-# =====================================================
-# USER ACTIVITIES
-# =====================================================
+# ==================================================
+# BULK LOGIC ASSIGNMENT
+# ==================================================
+
+st.subheader("Bulk Predecessor Assignment")
 
 user_df = df[
     df["Logic Type"] == "USER"
-].copy()
+]
 
-st.subheader("🔗 Bulk Predecessor Assignment")
+activity_options = [
 
-if len(user_df) == 0:
+    f"{row['Activity ID']} | {row['Activity Description']}"
 
-    st.warning(
-        "No USER Activities Found."
-    )
+    for _, row in user_df.iterrows()
 
-else:
+]
 
-    activity_options = [
-
-        f"{row['Activity ID']} | {row['Activity Description']}"
-
-        for _, row in user_df.iterrows()
-
-    ]
+if len(activity_options) > 0:
 
     col1, col2 = st.columns(2)
 
     with col1:
 
         successor = st.selectbox(
-            "Successor Activity",
+            "Successor",
             activity_options
         )
 
         predecessor = st.selectbox(
-            "Predecessor Activity",
+            "Predecessor",
             [""] + activity_options
         )
 
@@ -68,7 +60,7 @@ else:
         )
 
         lag = st.number_input(
-            "Lag (Days)",
+            "Lag",
             value=0
         )
 
@@ -81,52 +73,92 @@ else:
         if predecessor != "":
 
             predecessor_id = (
-                predecessor.split("|")[0].strip()
+                predecessor.split("|")[0]
+                .strip()
             )
 
-        row_idx = df[
-            df["Activity ID"] == successor_id
+        idx = df[
+            df["Activity ID"]
+            == successor_id
         ].index[0]
 
-        df.loc[row_idx, "Pred1"] = predecessor_id
+        df.loc[idx, "Pred1"] = predecessor_id
 
-        df.loc[row_idx, "Relationship"] = relationship
+        df.loc[idx, "Relationship"] = relationship
 
-        df.loc[row_idx, "Lag"] = lag
+        df.loc[idx, "Lag"] = lag
 
         st.session_state["schedule_df"] = df
 
         st.success(
-            f"Logic Assigned To {successor_id}"
+            "Logic Updated"
         )
 
-# =====================================================
-# LOGIC SUMMARY
-# =====================================================
+# ==================================================
+# VALIDATION
+# ==================================================
 
 st.divider()
 
-st.subheader("📋 Logic Summary")
+st.subheader("Logic Validation")
 
-logic_view = df[
-    df["Logic Type"] == "USER"
-][[
-    "Activity ID",
-    "Activity Description",
-    "Pred1",
-    "Relationship",
-    "Lag"
-]]
+issues = []
 
-st.dataframe(
-    logic_view,
-    width="stretch",
-    height=300
+activity_ids = set(
+    df["Activity ID"]
+    .astype(str)
 )
 
-# =====================================================
+for _, row in df.iterrows():
+
+    activity = str(
+        row["Activity ID"]
+    )
+
+    for pred_col in [
+        "Pred1",
+        "Pred2",
+        "Pred3"
+    \]:
+
+        pred = str(
+            row.get(pred_col, "")
+        ).strip()
+
+        if pred == "" or pred == "nan":
+            continue
+
+        if pred == activity:
+
+            issues.append(
+                f"{activity} references itself"
+            )
+
+        if pred not in activity_ids:
+
+            issues.append(
+                f"{activity} has invalid predecessor {pred}"
+            )
+
+if issues:
+
+    st.error(
+        f"{len(issues)} issue(s) found"
+    )
+
+    for issue in issues:
+
+        st.write(f"❌ {issue}")
+
+else:
+
+    st.success(
+        "No Logic Issues Found"
+    )
+
+# ==================================================
 # DATE CALCULATION
-# =====================================================
+# ==================================================
 
 st.divider()
 
@@ -138,35 +170,37 @@ project_start = st.date_input(
 
 if st.button("Calculate Schedule"):
 
-    schedule_df = st.session_state[
-        "schedule_df"
-    ].copy()
-
     activity_dates = {}
 
-    if "Start Date" not in schedule_df.columns:
-        schedule_df["Start Date"] = None
-
-    if "Finish Date" not in schedule_df.columns:
-        schedule_df["Finish Date"] = None
+    schedule_df = df.copy()
 
     for idx, row in schedule_df.iterrows():
 
-        pred1 = str(
-            row.get("Pred1", "")
-        ).strip()
+        preds = []
+
+        for pred_col in [
+            "Pred1",
+            "Pred2",
+            "Pred3"
+        \]:
+
+            pred = str(
+                row.get(pred_col, "")
+            ).strip()
+
+            if pred and pred != "nan":
+
+                preds.append(pred)
 
         duration = int(
             row["Duration"]
         )
 
-        lag = int(
+        lag_val = int(
             row.get("Lag", 0)
         )
 
-        # No predecessor
-
-        if pred1 == "" or pred1 == "nan":
+        if len(preds) == 0:
 
             start_date = pd.Timestamp(
                 project_start
@@ -174,16 +208,22 @@ if st.button("Calculate Schedule"):
 
         else:
 
-            if pred1 in activity_dates:
+            dates = []
 
-                start_date = (
+            for pred in preds:
 
-                    activity_dates[pred1]["Finish"]
+                if pred in activity_dates:
 
-                    +
+                    dates.append(
+                        activity_dates[pred]["Finish"]
+                    )
 
-                    timedelta(days=1 + lag)
+            if len(dates) > 0:
 
+                start_date = max(
+                    dates
+                ) + timedelta(
+                    days=1 + lag_val
                 )
 
             else:
@@ -193,13 +233,10 @@ if st.button("Calculate Schedule"):
                 )
 
         finish_date = (
-
-            start_date
-
-            +
-
-            timedelta(days=duration - 1)
-
+            start_date +
+            timedelta(
+                days=duration - 1
+            )
         )
 
         activity_dates[
@@ -227,111 +264,21 @@ if st.button("Calculate Schedule"):
     ] = schedule_df
 
     st.success(
-        "Schedule Calculated Successfully"
+        "Schedule Calculated"
     )
 
-# =====================================================
-# VALIDATION
-# =====================================================
+# ==================================================
+# REVIEW
+# ==================================================
 
 st.divider()
 
-st.subheader("✅ Logic Validation")
-
-issues = []
-
-for _, row in df.iterrows():
-
-    activity = str(
-        row["Activity ID"]
-    ).strip()
-
-    pred = str(
-        row.get("Pred1", "")
-    ).strip()
-
-    if pred == "":
-        continue
-
-    if pred == activity:
-
-        issues.append(
-
-            f"{activity} cannot be its own predecessor"
-
-        )
-
-if issues:
-
-    st.error(
-        f"{len(issues)} Issues Found"
-    )
-
-    for issue in issues:
-
-        st.write(
-            f"❌ {issue}"
-        )
-
-else:
-
-    st.success(
-        "No Logic Issues Found"
-    )
-
-# =====================================================
-# SCHEDULE REVIEW
-# =====================================================
-
-st.divider()
-
-st.subheader("📊 Current Schedule")
-
-schedule_export = st.session_state[
-    "schedule_df"
-]
+st.subheader("Schedule Review")
 
 st.dataframe(
-    schedule_export,
+    st.session_state["schedule_df"],
     width="stretch",
     height=500
 )
 
-# =====================================================
-# EXPORT
-# =====================================================
-
-st.divider()
-
-st.subheader("📥 Export Schedule")
-
-excel_buffer = BytesIO()
-
-with pd.ExcelWriter(
-    excel_buffer,
-    engine="openpyxl"
-) as writer:
-
-    schedule_export.to_excel(
-        writer,
-        index=False,
-        sheet_name="Schedule"
-    )
-
-st.download_button(
-    "📥 Download Excel Schedule",
-    excel_buffer.getvalue(),
-    file_name="TKIL_Schedule.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
-
-csv_data = schedule_export.to_csv(
-    index=False
-)
-
-st.download_button(
-    "📥 Download CSV Schedule",
-    csv_data,
-    file_name="TKIL_Schedule.csv",
-    mime="text/csv"
-)
+# ==========================
