@@ -1,5 +1,17 @@
 import streamlit as st
 
+from utils.theme import (
+    init_theme,
+    theme_toggle,
+    apply_theme
+)
+
+init_theme()
+
+theme_toggle()
+
+apply_theme()
+
 st.set_page_config(
     page_title="TKIL Scheduler",
     page_icon="📅",
