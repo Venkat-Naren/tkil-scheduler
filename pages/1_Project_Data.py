@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 from io import BytesIO
+from utils.theme import apply_theme
+
+apply_theme()
 
 st.set_page_config(
     page_title="Project Data",
